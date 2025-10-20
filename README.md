@@ -31,7 +31,7 @@ streamlit
 scikit-learn
 matplotlib
 seaborn
-openpyxl # Jika Anda menggunakan file .xlsx
+openpyxl
 ```
 
 Anda dapat menginstalnya melalui pip:
