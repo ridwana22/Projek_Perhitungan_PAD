@@ -1,65 +1,84 @@
-# K-Means Clustering & KNN/Random Forest Classification App 📊
+# Aplikasi K-Means Clustering & Model Prediktif (KNN dan Random Forest)
 
-Aplikasi interaktif Streamlit ini memungkinkan pengguna untuk melakukan analisis *Clustering* menggunakan **K-Means** dan membangun model prediktif klasifikasi menggunakan **K-Nearest Neighbors (KNN)** atau **Random Forest** berdasarkan hasil *clustering*.
+Aplikasi berbasis **Streamlit** untuk melakukan **analisis clustering** menggunakan **K-Means** dan membangun **model prediktif** menggunakan **K-Nearest Neighbors (KNN)** serta **Random Forest**.  
+Aplikasi ini memungkinkan pengguna untuk mengunggah dataset sendiri, melakukan pra-pemrosesan data, visualisasi hasil clustering, dan membuat model klasifikasi berbasis hasil clustering.
 
-## Fitur Utama ✨
+---
 
-1.  **Unggah Data Interaktif:** Mendukung unggah file dalam format CSV atau Excel (`.csv`, `.xlsx`).
-2.  **Pra-pemrosesan Data:** Otomatis menangani *missing values* (menghapus baris) dan menampilkan informasi dasar serta statistik deskriptif.
-3.  **Normalisasi:** Pilihan antara **MinMaxScaler** dan **StandardScaler**.
-4.  **K-Means Clustering:**
-      * Visualisasi *Elbow Method* untuk membantu menentukan jumlah cluster.
-      * Pengaturan jumlah cluster ($K$) secara manual.
-      * Visualisasi hasil *clustering* menggunakan **Principal Component Analysis (PCA) 2D**.
-      * Evaluasi *clustering* menggunakan **Silhouette Score** dan **Davies-Bouldin Score**.
-5.  **Model Klasifikasi:**
-      * Pilihan model: **KNN** atau **Random Forest** untuk mengklasifikasikan data baru ke dalam cluster yang sudah terbentuk.
-      * Menampilkan **Akurasi**, **Classification Report**, dan **Confusion Matrix**.
-      * Fitur opsional **Hyperparameter Tuning (GridSearchCV)** untuk KNN.
-6.  **Pencarian Data Terdekat:** Fitur interaktif untuk mencari data terdekat berdasarkan input manual:
-      * **KNN:** Menemukan $K$ tetangga terdekat di seluruh dataset.
-      * **Random Forest:** Menemukan sampel acak dari data yang termasuk dalam cluster prediksi yang sama.
+## 🚀 **Fitur Utama**
 
-## Persyaratan (Requirements) 🛠️
+✅ Upload file **CSV atau Excel (.xlsx)**  
+✅ Deteksi dan penanganan **missing values**  
+✅ Normalisasi data menggunakan **MinMaxScaler** atau **StandardScaler**  
+✅ Clustering otomatis dan manual dengan **K-Means**  
+✅ **Elbow Method** untuk menentukan jumlah cluster optimal  
+✅ Visualisasi hasil clustering dalam bentuk **PCA 2D Plot**  
+✅ Perhitungan metrik kualitas cluster:
+   - **Silhouette Score**
+   - **Davies-Bouldin Score**  
+✅ Model prediktif:
+   - **KNN (K-Nearest Neighbors)** dengan pilihan algoritma: `auto`, `kd_tree`, `ball_tree`, `brute`
+   - **Random Forest** dengan pengaturan jumlah pohon dan kedalaman maksimum  
+✅ **Hyperparameter tuning** otomatis dengan **GridSearchCV**  
+✅ Fitur **pencarian data terdekat** berdasarkan nama daerah (`namapemda`) dan tahun (`tahun`)  
+✅ Download hasil clustering dalam format **CSV**
 
-Pastikan Anda telah menginstal pustaka Python berikut:
+---
 
-```bash
-pandas
-numpy
-streamlit
-scikit-learn
-matplotlib
-seaborn
-openpyxl
-```
+## 🧠 **Teknologi yang Digunakan**
 
-Anda dapat menginstalnya melalui pip:
+- **Python 3.9+**
+- **Streamlit**
+- **scikit-learn**
+- **pandas**
+- **numpy**
+- **seaborn**
+- **matplotlib**
 
-```bash
-pip install pandas numpy streamlit scikit-learn matplotlib seaborn openpyxl
-```
+---
 
-## Cara Menjalankan Aplikasi ▶️
+## ⚙️ **Langkah Instalasi**
 
-1.  Simpan kode aplikasi di atas ke dalam sebuah file, misalnya `app.py`.
-2.  Buka terminal atau command prompt dan arahkan ke direktori tempat Anda menyimpan file tersebut.
-3.  Jalankan perintah Streamlit:
+1. Clone repositori ini:
+   ```bash
+   git clone https://github.com/ridwana22/Projek_Perhitungan_PAD.git
+   cd PerhitunganPAD
+````
 
-<!-- end list -->
+2. Buat dan aktifkan virtual environment (disarankan):
 
-```bash
-streamlit run app.py
-```
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate      # Untuk Windows
+   source venv/bin/activate   # Untuk Mac/Linux
+   ```
 
-4.  Aplikasi akan terbuka secara otomatis di *browser* web Anda.
+3. Instal semua dependensi:
 
-## Alur Penggunaan (Workflow) ⚙️
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-1.  **Unggah File:** Gunakan *sidebar* untuk mengunggah file CSV atau Excel Anda.
-2.  **Pilih Kolom:** Pilih kolom numerik yang akan digunakan untuk proses *clustering*.
-3.  **Pilih Metode Normalisasi:** Tentukan `MinMaxScaler` atau `StandardScaler` di *sidebar*.
-4.  **Tentukan $K$:** Lihat grafik *Elbow Method* dan tentukan jumlah cluster yang diinginkan, baik secara otomatis atau manual di *sidebar*.
-5.  **Pilih Model:** Pilih antara **KNN** atau **Random Forest** di bagian model prediktif. Atur *hyperparameter* yang relevan (misalnya, $K$ untuk KNN atau `n_estimators` untuk Random Forest) di *sidebar*.
-6.  **Analisis Hasil:** Tinjau metrik evaluasi *clustering* dan model klasifikasi.
-7.  **Cari Data Terdekat:** Gunakan bagian terakhir untuk menginput `namapemda` dan `tahun` (jika kolom ini ada) untuk menemukan data yang serupa di cluster yang sama atau merupakan tetangga terdekat.
+4. Jalankan aplikasi Streamlit:
+
+   ```bash
+   streamlit run PAD_2.py
+   ```
+
+---
+
+## 🧮 **Cara Menggunakan Aplikasi**
+
+1. Jalankan aplikasi Streamlit seperti perintah di atas.
+2. Unggah dataset berformat **CSV** atau **Excel (.xlsx)**.
+3. Pilih kolom numerik untuk analisis clustering.
+4. Pilih metode normalisasi dan jumlah cluster (opsional).
+5. Lihat hasil visualisasi dan metrik evaluasi cluster.
+6. Pilih model prediktif yang diinginkan (**KNN** atau **Random Forest**).
+7. Jika menggunakan KNN, dapat dilakukan tuning parameter otomatis menggunakan **GridSearchCV**.
+8. Gunakan fitur **Cari Data Terdekat** untuk melihat data serupa berdasarkan input.
+9. Unduh hasil data yang telah dikelompokkan (clustered data) dalam format CSV.
+
+---
+
+
