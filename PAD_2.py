@@ -68,7 +68,14 @@ if uploaded_file is not None:
 
             # Normalisasi
             scale_method = st.sidebar.radio("Pilih Metode Normalisasi", ["MinMaxScaler", "StandardScaler"])
-            X_scaled = scale_features(X, method=scale_method)
+            # buat scaler sekali saja, fit pada seluruh X, lalu gunakan untuk transformasi input nanti
+            if scale_method == 'MinMaxScaler':
+                scaler = MinMaxScaler()
+            else:
+                scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X)
+            
+
             st.write("### Data Setelah Normalisasi:")
             st.dataframe(pd.DataFrame(X_scaled, columns=selected_columns).sample(n=5))
 
@@ -137,6 +144,12 @@ if uploaded_file is not None:
             y_knn = df_filtered['Cluster']
             X_train, X_test, y_train, y_test = train_test_split(X_knn, y_knn, test_size=0.2, random_state=42)
 
+            # Inisialisasi model di luar blok if/else agar bisa diakses di bagian pencarian
+            knn = None
+            rf = None
+            knn_k = 5 # Default
+            knn_algo = 'auto' # Default
+
             if model_choice == "KNN":
                 st.subheader("🔹 K-Nearest Neighbors (KNN)")
                 knn_k = st.sidebar.slider("Jumlah Tetangga (K)", 1, 15, 5)
@@ -186,41 +199,78 @@ if uploaded_file is not None:
                 st.pyplot(fig_cm)
 
             # -----------------------------
-            # Cari Data Terdekat
+            # Cari Data Terdekat (MODIFIKASI DIMULAI DI SINI)
             # -----------------------------
             st.write("## 📍 Cari Data Terdekat Berdasarkan Input Manual")
-            if "namapemda" in df.columns and "tahun" in df.columns:
+            # Pastikan model sudah terinisialisasi
+            if (model_choice == "KNN" and knn is None) or (model_choice == "Random Forest" and rf is None):
+                 st.warning("Silakan jalankan model klasifikasi di atas terlebih dahulu.")
+
+            elif "namapemda" in df.columns and "tahun" in df.columns:
                 selected_year = st.selectbox("Pilih Tahun", sorted(df['tahun'].unique()))
                 df_year_filtered = df_filtered[df_filtered['tahun'] == selected_year]
-                selected_namapemda = st.selectbox("Pilih Nama Pemda", sorted(df_year_filtered['namapemda'].unique()))
+                
+                # Cek apakah data filter untuk tahun tersebut ada
+                if df_year_filtered.empty:
+                    st.warning(f"Tidak ada data 'namapemda' untuk tahun {selected_year} dalam dataset hasil clustering.")
+                else:
+                    selected_namapemda = st.selectbox("Pilih Nama Pemda", sorted(df_year_filtered['namapemda'].unique()))
 
-                if st.button("Cari Data Terdekat"):
-                    selected_row = df_year_filtered[df_year_filtered['namapemda'] == selected_namapemda].iloc[0]
-                    feature_row = selected_row[selected_columns].to_frame().T
-                    scaled_input = scale_features(feature_row, method=scale_method)
+                    if st.button("Cari Data Terdekat"):
+                        selected_row = df_year_filtered[df_year_filtered['namapemda'] == selected_namapemda].iloc[0]
+                        input_index = selected_row.name # Simpan index asli baris input
 
-                    display_cols = ['namapemda', 'tahun'] + selected_columns  # kolom yang akan ditampilkan
+                        # Pastikan kolom yang dipilih (X) di-index ulang agar urutan fiturnya sama
+                        feature_row = selected_row[selected_columns].to_frame().T
+                        # gunakan scaler yang sudah di-fit pada X, jangan fit ulang pada satu baris
+                        scaled_input = scaler.transform(feature_row)
 
-                    if model_choice == "KNN":
-                        distances, indices = knn.kneighbors(scaled_input, n_neighbors=knn_k)
-                        nearest_neighbors_global = df_filtered.iloc[indices[0]].copy()
-                        nearest_neighbors_global['Jarak'] = distances[0]
-                        # Pastikan kolom ada sebelum memilih
-                        cols_to_show = [c for c in display_cols if c in nearest_neighbors_global.columns] + ['Jarak']
-                        nearest_neighbors = nearest_neighbors_global[cols_to_show]
+                        display_cols = ['namapemda', 'tahun'] + selected_columns  # kolom yang akan ditampilkan
 
-                        st.write(f"### 🔹 Hasil Pencarian Tetangga Terdekat (KNN - {knn_algo})")
-                        st.dataframe(nearest_neighbors)
+                        if model_choice == "KNN":
+                            # --- PERBAIKAN KNN: Latih KNN pada SELURUH data ter-skala ---
+                            # Kita perlu melatih model KNN baru pada X_scaled untuk memastikan indeksnya benar
+                            knn_full = KNeighborsClassifier(n_neighbors=knn_k, algorithm=knn_algo)
+                            knn_full.fit(X_scaled, df_filtered['Cluster']) 
 
-                    else:
-                        predicted_cluster = rf.predict(scaled_input)[0]
-                        nearest_neighbors_global = df_filtered[df_filtered['Cluster'] == predicted_cluster].copy()
-                        n_show = min(5, len(nearest_neighbors_global))
-                        nearest_neighbors_global = nearest_neighbors_global.sample(n_show, random_state=42)
-                        cols_to_show = [c for c in display_cols if c in nearest_neighbors_global.columns] + selected_columns
-                        # jika selected_columns sudah termasuk, dedup kolom
-                        cols_to_show = list(dict.fromkeys(cols_to_show))
-                        nearest_neighbors = nearest_neighbors_global[cols_to_show]
+                            # minta 1 neighbor ekstra supaya bisa menghapus baris input itu sendiri
+                            n_nbrs = min(knn_k + 1, len(X_scaled))
+                            distances, indices = knn_full.kneighbors(scaled_input, n_neighbors=n_nbrs)
+                            
+                            # Indeks yang dihasilkan adalah indeks dari X_scaled, yang sesuai dengan df_filtered
+                            nearest_neighbors_global = df_filtered.iloc[indices[0]].copy()
+                            nearest_neighbors_global['Jarak'] = distances[0]
+                            
+                            # Hapus baris input itu sendiri dari hasil (jika ada), lalu ambil knn_k teratas
+                            nearest_neighbors_global = nearest_neighbors_global[nearest_neighbors_global.index != input_index]
+                            nearest_neighbors_global = nearest_neighbors_global.head(knn_k)
 
-                        st.write(f"### 🌲 Hasil Pencarian Berdasarkan Cluster Sama (Random Forest)")
-                        st.dataframe(nearest_neighbors)
+                            # Tentukan kolom yang akan ditampilkan
+                            cols_to_show = [c for c in display_cols if c in nearest_neighbors_global.columns] + ['Cluster', 'Jarak']
+                            nearest_neighbors = nearest_neighbors_global[cols_to_show]
+
+                            st.write(f"### 🔹 Hasil Pencarian Tetangga Terdekat (KNN - {knn_algo})")
+                            st.dataframe(nearest_neighbors)
+
+                        else:
+                            # --- PERBAIKAN Random Forest: Hapus random_state untuk sampel ---
+                            predicted_cluster = rf.predict(scaled_input)[0]
+                            nearest_neighbors_global = df_filtered[df_filtered['Cluster'] == predicted_cluster].copy()
+                            
+                            # Hapus baris input itu sendiri dari daftar
+                            nearest_neighbors_global = nearest_neighbors_global.drop(input_index, errors='ignore')
+                            
+                            n_show = min(5, len(nearest_neighbors_global))
+                            
+                            # HAPUS 'random_state=42' agar hasil sampel berbeda
+                            nearest_neighbors_global = nearest_neighbors_global.sample(n_show) 
+                            
+                            cols_to_show = [c for c in display_cols if c in nearest_neighbors_global.columns] + ['Cluster']
+                            # Dedup kolom dan tampilkan
+                            cols_to_show = list(dict.fromkeys(cols_to_show))
+                            nearest_neighbors = nearest_neighbors_global[cols_to_show]
+
+                            st.write(f"### 🌲 Hasil Pencarian Berdasarkan Cluster Sama (Random Forest)")
+                            st.dataframe(nearest_neighbors)
+            else:
+                st.warning("Dataset tidak memiliki kolom 'namapemda' dan/atau 'tahun' yang diperlukan untuk fitur ini.")
