@@ -1,4 +1,4 @@
-# Import library
+# Import Library yang digunakan
 import io
 import numpy as np
 import pandas as pd
@@ -18,13 +18,14 @@ from sklearn.metrics import (
 import warnings
 warnings.filterwarnings("ignore")
 
-# Fungsi scaling
+# Fungsi scaling untuk fitur (kembalikan scaler agar bisa dipakai kembali untuk transform input)
 def scale_features(X, method='MinMaxScaler'):
-    if method == 'MinMaxScaler': 
-        scaler = MinMaxScaler()
+    if method == 'MinMaxScaler':
+        scaler = MinMaxScaler() # Untuk mengskala fitur antara 0 dan 1
     else:
         scaler = StandardScaler()
-    return scaler.fit_transform(X)
+    X_scaled = scaler.fit_transform(X)
+    return X_scaled, scaler
 
 st.title('K-Means Clustering & KNN/Random Forest Classification')
 st.subheader('🔍 Analisis Clustering dan Model Prediktif')
@@ -34,14 +35,15 @@ uploaded_file = st.sidebar.file_uploader("Upload CSV / Excel file", type=["xlsx"
 if uploaded_file is not None:
     # Baca file
     if uploaded_file.name.endswith('.csv'):
-        df = pd.read_csv(uploaded_file)
+        df = pd.read_csv(uploaded_file) # Baca file CSV
     else:
-        df = pd.read_excel(uploaded_file)
+        df = pd.read_excel(uploaded_file) # Baca file Excel
 
     st.success("✅ File berhasil diunggah!")
     st.write("### Preview Dataset:")
     st.dataframe(df.head())
 
+    # Cek Missing Values
     if df.isnull().sum().sum() > 0:
         st.warning("⚠️ Dataset mengandung missing values. Baris dengan missing values akan dihapus.")
         df.dropna(inplace=True)
@@ -49,35 +51,33 @@ if uploaded_file is not None:
         st.info("Dataset tidak mengandung missing values.")
 
     # Info Dataset
-    buffer = io.StringIO()
-    df.info(buf=buffer)
+    buffer = io.StringIO() # Menyimpan output info ke buffer
+    df.info(buf=buffer) # Dapatkan info dataset
     st.write("### Informasi Dataset:")
     st.text(buffer.getvalue())
 
     st.write("### Statistik Deskriptif:")
     st.write(df.describe())
 
+    # Untuk clustering, pilih kolom numerik
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
     if len(numeric_cols) < 2:
         st.warning("Dataset harus memiliki minimal 2 kolom numerik untuk clustering.")
     else:
         selected_columns = st.multiselect("Pilih Kolom Numerik untuk Clustering:", numeric_cols, default=numeric_cols[:2])
 
+        # Pastikan ada minimal 2 kolom yang dipilih
         if len(selected_columns) >= 2:
-            X = df[selected_columns].dropna()
+            X = df[selected_columns].dropna() # Hapus baris dengan missing values pada kolom terpilih
 
             # Normalisasi
             scale_method = st.sidebar.radio("Pilih Metode Normalisasi", ["MinMaxScaler", "StandardScaler"])
-            # buat scaler sekali saja, fit pada seluruh X, lalu gunakan untuk transformasi input nanti
-            if scale_method == 'MinMaxScaler':
-                scaler = MinMaxScaler()
-            else:
-                scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(X)
-            
+            # gunakan fungsi untuk mendapatkan X_scaled dan scaler yang sudah di-fit
+            X_scaled, scaler = scale_features(X, method=scale_method)
 
             st.write("### Data Setelah Normalisasi:")
-            st.dataframe(pd.DataFrame(X_scaled, columns=selected_columns).sample(n=5))
+            n_sample = min(5, X_scaled.shape[0])
+            st.dataframe(pd.DataFrame(X_scaled, columns=selected_columns).sample(n=n_sample))
 
             # Elbow Method
             inertia = []
@@ -98,12 +98,12 @@ if uploaded_file is not None:
             # Jumlah cluster manual
             check_k = st.sidebar.checkbox("Atur jumlah Cluster (K) manual", value=False)
             if check_k:
-                cluster_range = st.sidebar.number_input("Masukkan jumlah cluster (K)", 2, 10, 3, 1)
+                cluster_range = int(st.sidebar.number_input("Masukkan jumlah cluster (K)", 2, 10, 3, 1))
             else:
                 cluster_range = 3
 
             # KMeans
-            kmeans = KMeans(n_clusters=cluster_range, random_state=42)
+            kmeans = KMeans(n_clusters=int(cluster_range), random_state=42, n_init=10)
             cluster_labels = kmeans.fit_predict(X_scaled)
 
             df_filtered = df.loc[X.index].copy()
@@ -153,6 +153,7 @@ if uploaded_file is not None:
             if model_choice == "KNN":
                 st.subheader("🔹 K-Nearest Neighbors (KNN)")
                 knn_k = st.sidebar.slider("Jumlah Tetangga (K)", 1, 15, 5)
+                knn_k = int(knn_k)
                 knn_algo = st.sidebar.selectbox("Pilih Algoritma KNN", ['auto', 'kd_tree', 'ball_tree', 'brute'])
 
                 knn = KNeighborsClassifier(n_neighbors=knn_k, algorithm=knn_algo)
@@ -234,7 +235,7 @@ if uploaded_file is not None:
                             knn_full.fit(X_scaled, df_filtered['Cluster']) 
 
                             # minta 1 neighbor ekstra supaya bisa menghapus baris input itu sendiri
-                            n_nbrs = min(knn_k + 1, len(X_scaled))
+                            n_nbrs = min(int(knn_k) + 1, len(X_scaled))
                             distances, indices = knn_full.kneighbors(scaled_input, n_neighbors=n_nbrs)
                             
                             # Indeks yang dihasilkan adalah indeks dari X_scaled, yang sesuai dengan df_filtered
@@ -261,10 +262,8 @@ if uploaded_file is not None:
                             nearest_neighbors_global = nearest_neighbors_global.drop(input_index, errors='ignore')
                             
                             n_show = min(5, len(nearest_neighbors_global))
-                            
-                            # HAPUS 'random_state=42' agar hasil sampel berbeda
                             nearest_neighbors_global = nearest_neighbors_global.sample(n_show) 
-                            
+
                             cols_to_show = [c for c in display_cols if c in nearest_neighbors_global.columns] + ['Cluster']
                             # Dedup kolom dan tampilkan
                             cols_to_show = list(dict.fromkeys(cols_to_show))
