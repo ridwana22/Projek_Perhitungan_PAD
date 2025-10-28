@@ -1,3 +1,32 @@
+# ==========================================================================================
+# Aplikasi Analisis Clustering dan Klasifikasi Menggunakan Streamlit
+# ==========================================================================================
+# Kode ini membangun aplikasi interaktif berbasis Streamlit untuk melakukan:
+# 1. K-Means Clustering — Mengelompokkan data berdasarkan kesamaan fitur numerik. 
+#     Disertai visualisasi PCA 2D, perhitungan metrik evaluasi (Silhouette & Davies-Bouldin Score),
+#     serta opsi ekspor hasil clustering ke file CSV.
+#
+# 2. Model Klasifikasi — Menggunakan dua algoritma:
+#     • K-Nearest Neighbors (KNN): dapat memilih algoritma pencarian tetangga ('auto', 'kd_tree', 'ball_tree', 'brute'),
+#       serta mendukung GridSearchCV untuk tuning hyperparameter.
+#     • Random Forest Classifier: dapat menyesuaikan jumlah pohon (n_estimators) dan kedalaman maksimum (max_depth).
+#
+# 3. Pencarian Data Terdekat — Memungkinkan pengguna mencari data serupa berdasarkan input manual 
+#     (misalnya berdasarkan nama pemda dan tahun) dengan dua pendekatan:
+#       • KNN: mencari tetangga terdekat berdasarkan jarak fitur.
+#       • Random Forest: menampilkan data lain dalam cluster yang sama.
+#
+# 4. Fitur Tambahan:
+#     - Deteksi dan penghapusan missing values.
+#     - Pemilihan metode normalisasi (MinMaxScaler / StandardScaler).
+#     - Visualisasi Elbow Method untuk menentukan jumlah cluster optimal.
+#     - Tabel hasil, metrik akurasi, confusion matrix, dan laporan klasifikasi otomatis.
+#
+# Tujuan utama:
+# Membangun pipeline lengkap dari preprocessing → clustering → klasifikasi → analisis hasil 
+# secara interaktif dalam satu aplikasi yang mudah digunakan.
+# ==========================================================================================
+
 # Import Library yang digunakan
 import io
 import numpy as np
@@ -18,12 +47,12 @@ from sklearn.metrics import (
 import warnings
 warnings.filterwarnings("ignore")
 
-# Fungsi scaling untuk fitur (kembalikan scaler agar bisa dipakai kembali untuk transform input)
+# Fungsi scaling untuk fitu
 def scale_features(X, method='MinMaxScaler'):
     if method == 'MinMaxScaler':
         scaler = MinMaxScaler() # Untuk mengskala fitur antara 0 dan 1
     else:
-        scaler = StandardScaler()
+        scaler = StandardScaler() # Untuk mengskala fitur dengan mean=0 dan std=1
     X_scaled = scaler.fit_transform(X)
     return X_scaled, scaler
 
@@ -57,7 +86,7 @@ if uploaded_file is not None:
     st.text(buffer.getvalue())
 
     st.write("### Statistik Deskriptif:")
-    st.write(df.describe())
+    st.write(df.describe()) # Statistik deskriptif dari dataset
 
     # Untuk clustering, pilih kolom numerik
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
@@ -76,10 +105,10 @@ if uploaded_file is not None:
             X_scaled, scaler = scale_features(X, method=scale_method)
 
             st.write("### Data Setelah Normalisasi:")
-            n_sample = min(5, X_scaled.shape[0])
+            n_sample = min(5, X_scaled.shape[0]) # Tampilkan maksimal 5 sampel
             st.dataframe(pd.DataFrame(X_scaled, columns=selected_columns).sample(n=n_sample))
 
-            # Elbow Method
+            # Elbow method dipakai untuk membantu menentukan jumlah cluster (k) yang baik pada K‑Means dengan melihat trade‑off antara jumlah cluster dan inertia
             inertia = []
             K = range(1, 11)
             for k in K:
@@ -95,14 +124,17 @@ if uploaded_file is not None:
             plt.grid(True)
             st.pyplot(fig_elbow)
 
-            # Jumlah cluster manual
+            # Untuk menentukan jumlah cluster (k) secara manual atau default
             check_k = st.sidebar.checkbox("Atur jumlah Cluster (K) manual", value=False)
             if check_k:
                 cluster_range = int(st.sidebar.number_input("Masukkan jumlah cluster (K)", 2, 10, 3, 1))
             else:
                 cluster_range = 3
 
-            # KMeans
+            # K-means 
+            # Untuk melakukan proses pembentukan kelompok (clustering) 
+            #pada data yang telah dinormalisasi, lalu menambahkan hasil 
+            #label cluster ke dataframe utama 
             kmeans = KMeans(n_clusters=int(cluster_range), random_state=42, n_init=10)
             cluster_labels = kmeans.fit_predict(X_scaled)
 
@@ -110,6 +142,9 @@ if uploaded_file is not None:
             df_filtered['Cluster'] = cluster_labels
 
             # Visualisasi PCA
+            # Menampilkan hasil clustering dalam bentuk visual 2D
+            # menggunakan PCA, agar kita bisa melihat pola, sebaran, 
+            # dan pemisahan antar cluster secara jelas 
             pca = PCA(n_components=2)
             X_pca = pca.fit_transform(X_scaled)
             fig_pca = plt.figure(figsize=(8, 6))
@@ -123,16 +158,23 @@ if uploaded_file is not None:
             st.write("### Data dengan Label Cluster:")
             st.dataframe(df_filtered.head())
 
+
+            # Menilai seberapa baik hasil clustering K-Means yang telah dilakukan, berdasarkan dua metrik utama:
+            # Silhouette Score → semakin tinggi, semakin baik.
+            # Davies–Bouldin Score → semakin rendah, semakin baik. 
             sil_score = silhouette_score(X_scaled, cluster_labels)
             db_score = davies_bouldin_score(X_scaled, cluster_labels)
             st.write(f"**Silhouette Score:** {sil_score:.3f}")
             st.write(f"**Davies-Bouldin Score:** {db_score:.3f}")
 
             # Simpan data
+            # Membuat fitur ekspor hasil clustering ke file CSV dan
+            # menyediakan tombol unduhan langsung di aplikasi Streamlit. 
             if st.button("💾 Simpan Data Clustered"):
                 csv_data = df_filtered.to_csv(index=False).encode('utf-8')
                 st.download_button("Unduh DataClustered.csv", csv_data, "DataClustered.csv", "text/csv")
                 st.success("Data berhasil disimpan sebagai 'DataClustered.csv'")
+
 
             # -----------------------------
             # Bagian KNN dan Random Forest
@@ -140,6 +182,9 @@ if uploaded_file is not None:
             st.write("## 🔍 Model Prediktif Berdasarkan Hasil Clustering")
             model_choice = st.radio("Pilih Model yang Akan Diterapkan:", ["KNN", "Random Forest"])
 
+            # Menyiapkan data sebelum pelatihan model KNN classifier, 
+            # dengan cara memisahkan fitur (X_scaled) dan label (Cluster), 
+            # lalu membaginya menjadi data latih dan data uji. 
             X_knn = X_scaled
             y_knn = df_filtered['Cluster']
             X_train, X_test, y_train, y_test = train_test_split(X_knn, y_knn, test_size=0.2, random_state=42)
@@ -150,6 +195,11 @@ if uploaded_file is not None:
             knn_k = 5 # Default
             knn_algo = 'auto' # Default
 
+            # Untuk menguji seberapa bagus model KNN (K-Nearest Neighbors) 
+            # dalam memprediksi hasil pengelompokan (cluster) dari data yang 
+            # sudah diolah sebelumnya. Juga bisa melihat akurasi modelnya, 
+            # melihat hasil prediksi dalam bentuk visual, dan mencoba mencari 
+            # pengaturan terbaik otomatis (tuning) untuk KNN. """
             if model_choice == "KNN":
                 st.subheader("🔹 K-Nearest Neighbors (KNN)")
                 knn_k = st.sidebar.slider("Jumlah Tetangga (K)", 1, 15, 5)
@@ -181,6 +231,11 @@ if uploaded_file is not None:
                     st.write(f"**Best Score (CV):** {grid_knn.best_score_:.3f}")
 
             else:
+                # Kode ini digunakan untuk melatih dan menilai model Random Forest 
+                # Classifier, yaitu salah satu algoritma Machine Learning yang digunakan 
+                # untuk klasifikasi (membedakan atau mengelompokkan data). Kalau Random Forest 
+                # bekerja dengan menggabungkan banyak pohon keputusan (decision tree) agar 
+                # hasilnya lebih stabil dan akurat. """
                 st.subheader("🌲 Random Forest Classifier")
                 n_estimators = st.sidebar.slider("Jumlah Pohon (n_estimators)", 10, 200, 100)
                 max_depth = st.sidebar.slider("Kedalaman Maksimum (max_depth)", 2, 20, 5)
@@ -202,11 +257,14 @@ if uploaded_file is not None:
             # -----------------------------
             # Cari Data Terdekat (MODIFIKASI DIMULAI DI SINI)
             # -----------------------------
+            
+            # Untuk mencari data terdekat berdasarkan input manual dari user
             st.write("## 📍 Cari Data Terdekat Berdasarkan Input Manual")
             # Pastikan model sudah terinisialisasi
-            if (model_choice == "KNN" and knn is None) or (model_choice == "Random Forest" and rf is None):
+            if (model_choice == "KNN" and knn is None) or (model_choice == "Random Forest" and rf is None): # Cek model apa yang dipilih
                  st.warning("Silakan jalankan model klasifikasi di atas terlebih dahulu.")
 
+            # Cek apakah kolom 'namapemda' dan 'tahun' ada di dataset
             elif "namapemda" in df.columns and "tahun" in df.columns:
                 selected_year = st.selectbox("Pilih Tahun", sorted(df['tahun'].unique()))
                 df_year_filtered = df_filtered[df_filtered['tahun'] == selected_year]
@@ -217,6 +275,7 @@ if uploaded_file is not None:
                 else:
                     selected_namapemda = st.selectbox("Pilih Nama Pemda", sorted(df_year_filtered['namapemda'].unique()))
 
+                    # Tombol untuk mencari data terdekat
                     if st.button("Cari Data Terdekat"):
                         selected_row = df_year_filtered[df_year_filtered['namapemda'] == selected_namapemda].iloc[0]
                         input_index = selected_row.name # Simpan index asli baris input
@@ -230,7 +289,6 @@ if uploaded_file is not None:
 
                         if model_choice == "KNN":
                             # --- PERBAIKAN KNN: Latih KNN pada SELURUH data ter-skala ---
-                            # Kita perlu melatih model KNN baru pada X_scaled untuk memastikan indeksnya benar
                             knn_full = KNeighborsClassifier(n_neighbors=knn_k, algorithm=knn_algo)
                             knn_full.fit(X_scaled, df_filtered['Cluster']) 
 
