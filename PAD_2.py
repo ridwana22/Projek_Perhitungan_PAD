@@ -127,6 +127,7 @@ if uploaded_file is not None:
                     kmeans_.fit(X_scaled)
                     inertia.append(kmeans_.inertia_)
 
+                # Untuk menampilkan plot Elbow Method
                 fig_elbow = plt.figure(figsize=(6, 4))
                 plt.plot(K, inertia, 'bo-')
                 plt.xlabel('Jumlah Cluster (k)')
@@ -218,6 +219,10 @@ if uploaded_file is not None:
             
             clf_col1, clf_col2 = st.columns(2)
 
+            # Logika untuk memilih dan menjalankan model KNN atau Random Forest
+            # Jika model KNN yand dipilih maka model akan belajar menggenali cluster dari training
+            # lalu menguji seberapa akurat prediksinya dengan data testing. Dan user bisa mengatur
+            # parameter secara manual atau otomatis
             if model_choice == "KNN":
                 with clf_col1:
                     st.subheader("🔹 K-Nearest Neighbors (KNN)")
@@ -250,6 +255,9 @@ if uploaded_file is not None:
                         st.write(f"**Best Params:** {grid_knn.best_params_}")
                         st.write(f"**Best Score (CV):** `{grid_knn.best_score_:.3f}`")
 
+            # Jika memilih Random Forest maka model akan belajar mengenali cluster dengan membuat
+            # banyak pohon keputusan dan setiap pohon memberikan suara untuk prediksi akhir.
+            # Model kemudian diuji dengan data testing untuk mengukur akurasinya.
             else:
                 with clf_col1:
                     st.subheader("🌲 Random Forest Classifier")
@@ -276,6 +284,7 @@ if uploaded_file is not None:
             # -----------------------------
             st.write("## 📍 Cari Data Terdekat Berdasarkan Input Manual")
 
+            # Untuk mencari data terdekat berdasarkan input manual
             if (model_choice == "KNN" and knn is None) or (model_choice == "Random Forest" and rf is None):
                 st.warning("Silakan jalankan model klasifikasi di atas terlebih dahulu.")
             elif "namapemda" in df.columns and "tahun" in df.columns:
@@ -302,8 +311,6 @@ if uploaded_file is not None:
                         st.dataframe(input_display)
 
                         if model_choice == "KNN":
-                            # === LOGIKA KNN BARU: FIT HANYA PADA DATA TAHUN YANG SAMA ===
-                            
                             # 1. Ambil data FITUR dan LABEL hanya untuk tahun yang dipilih.
                             df_year_features = df_filtered[df_filtered['tahun'] == selected_year]
                             
